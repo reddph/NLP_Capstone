@@ -8,11 +8,6 @@ library(tm)
 library(dplyr)
 library(stringr)
 
-ugset <- readRDS(file="./ugset.rds")
-bgset <- readRDS(file="./bgset.rds")
-tgset <- readRDS(file="./tgset.rds")
-qgset <- readRDS(file="./qgset.rds")
-
 stopWords <- stopwords("english")
 
 ## Read the profanities from the file
@@ -20,24 +15,23 @@ con <- file("profanities.txt", "r") ### read binary mode
 profanities <- readLines(con, encoding = "UTF-8") ## Read the first line of text 
 close(con) ## It's important to close the connection when you are done
 
-## Add row numbers as additional column in all for easy crossreference lookups in the higher gram hash maps
-## index refers to lookup for unigram embedded in the bigram or trigram or quadgram
-## index2 refers to lookup for bigram embedded in the trigram
-## index3 refers to lookup for trigram embedded in the quadgram
+ugset <- data.frame()
+bgset <- data.frame()
+tgset <- data.frame()
+qgset <- data.frame()
 
-ugset$rownum <- row(ugset)[,1]
-bgset$rownum <- row(bgset)[,1]
-tgset$rownum <- row(tgset)[,1]
-qgset$rownum <- row(qgset)[,1]
+f <- content_transformer(function(x, pattern, replacement) gsub(pattern, " ", x))
 
 ## Number of Top predictions
 n5 <- 20
 
+## global variable for data set initialization state
+initUnigrams <- FALSE
+initBigrams <- FALSE
+initTrigrams <- FALSE
+initQuadgrams <- FALSE
+
 #predRanks <- data.frame()
-
-ugset$Percent <- ugset$freq / sum(ugset$freq,na.rm=TRUE)
-
-f <- content_transformer(function(x, pattern, replacement) gsub(pattern, " ", x))
 
 ### Retrieve test expression from the UI
 # exp <- "The guy in front of me just bought a pound of bacon, a bouquet, and a case of"
@@ -72,7 +66,112 @@ f <- content_transformer(function(x, pattern, replacement) gsub(pattern, " ", x)
 shinyServer(
   function(input, output) {
     output$text1 <- renderText({
+
       exp <- input$var
+ 
+      # Create a Progress object
+      progress <- shiny::Progress$new()
+      progress$set(message = "Data Computation in progress", value = 0)
+      # Close the progress when this reactive exits (even if there's an error)
+      on.exit(progress$close())
+      
+      updateProgress <- function(value = NULL, detail = NULL) {
+        if (is.null(value)) {
+          value <- progress$getValue()
+          value <- value + (progress$getMax() - value) / 10
+        }
+        progress$set(value = value, detail = detail)
+      }
+      
+      ## Check for init state for data sets for unigrams, bigrams, trigrams, and quadgrams
+
+      #if(length(grep("ugset", dsloads, fixed=TRUE)) == 0) {
+      if(!initUnigrams) {
+        
+        # Set init to true
+        initUnigrams <<- TRUE
+        
+        if (is.function(updateProgress)) {
+          text <- "   Loading 1-Grams in Progress ..."
+          updateProgress(detail = text)
+        }
+        
+        ugset <<- readRDS(file="./ugset.rds")
+        
+        ## Add row numbers as additional column in all for easy crossreference lookups in the higher gram hash maps
+        ## index refers to lookup for unigram embedded in the bigram or trigram or quadgram
+        ## index2 refers to lookup for bigram embedded in the trigram
+        ## index3 refers to lookup for trigram embedded in the quadgram
+        
+        ugset$rownum <<- row(ugset)[,1]
+        ugset$Percent <<- ugset$freq / sum(ugset$freq,na.rm=TRUE)
+      }
+      
+      if(!initBigrams) {
+        
+        initBigrams <<- TRUE
+        
+        if (is.function(updateProgress)) {
+          text <- "   Loading 2-Grams in Progress ..."
+          updateProgress(detail = text)
+        }
+        
+        bgset <<- readRDS(file="./bgset.rds")
+        
+        ## Add row numbers as additional column in all for easy crossreference lookups in the higher gram hash maps
+        ## index refers to lookup for unigram embedded in the bigram or trigram or quadgram
+        ## index2 refers to lookup for bigram embedded in the trigram
+        ## index3 refers to lookup for trigram embedded in the quadgram
+        
+        bgset$rownum <<- row(bgset)[,1]
+      }
+      
+      #if(length(grep("tgset", dsloads, fixed=TRUE)) == 0) {
+      if(!initTrigrams) {
+        
+        # Set init to true
+        initTrigrams <<- TRUE
+        
+        if (is.function(updateProgress)) {
+          text <- "   Loading 3-Grams in Progress ..."
+          updateProgress(detail = text)
+        }
+        
+        tgset <<- readRDS(file="./tgset.rds")
+        
+        ## Add row numbers as additional column in all for easy crossreference lookups in the higher gram hash maps
+        ## index refers to lookup for unigram embedded in the bigram or trigram or quadgram
+        ## index2 refers to lookup for bigram embedded in the trigram
+        ## index3 refers to lookup for trigram embedded in the quadgram
+        
+        tgset$rownum <<- row(tgset)[,1]
+      } 
+      
+      ##if(length(grep("qgset", dsloads, fixed=TRUE)) == 0) {
+      if(!initQuadgrams) {
+        
+        # Set init to true
+        initQuadgrams <<- TRUE
+        
+        if (is.function(updateProgress)) {
+          text <- "   Loading 4-Grams in Progress ..."
+          updateProgress(detail = text)
+        }
+        
+        qgset <<- readRDS(file="./qgset.rds")
+        
+        ## Add row numbers as additional column in all for easy crossreference lookups in the higher gram hash maps
+        ## index refers to lookup for unigram embedded in the bigram or trigram or quadgram
+        ## index2 refers to lookup for bigram embedded in the trigram
+        ## index3 refers to lookup for trigram embedded in the quadgram
+        
+        qgset$rownum <<- row(qgset)[,1]
+      }          
+      
+      if (is.function(updateProgress)) {
+        text <- "         Token Processing In Progress ..."
+        updateProgress(detail = text)
+      }
       
       exp <- str_trim(exp,side="both")
       
@@ -194,6 +293,11 @@ shinyServer(
           suffixBigram <- sapply(1:length(test14),FUN=function(i)test14[[i]])
         }
         
+        if (is.function(updateProgress)) {
+          text <- "         Token Processing In Progress ..."
+          updateProgress(detail = text)
+        }
+        
         if(length(suffixQuadgram) > 0) {
           evalTokens <- suffixQuadgram
           if(length(suffixTrigram) > 0) {
@@ -263,6 +367,11 @@ shinyServer(
           }
         }
         
+#         if (is.function(updateProgress)) {
+#           text <- "   Token Processing In Progress ..."
+#           updateProgress(detail = text)
+#         }
+        
         if(found3gramMatches) {
           evalTrigrams <- candidates3gram[candidates3gram$index %in% (ugset[evalTokens,]$rownum),]
           
@@ -317,6 +426,7 @@ shinyServer(
             }
           }
         }
+        
         
         if(includeQuadgrams & !includeTrigrams){
           predWord <- rownames(ugset[evalQuadgrams$index,][1,])
@@ -412,6 +522,11 @@ shinyServer(
           predWord <- rownames(ugset[setdiff(rownames(ugset),stopWords),][1,])
           
           predRanks <<- ugset[1:n5,]
+        }
+        
+        if (is.function(updateProgress)) {
+          text <- "         Token Processing In Progress ..."
+          updateProgress(detail = text)
         }
         
         paste(exp, predWord, sep=" ")

@@ -25,13 +25,7 @@ f <- content_transformer(function(x, pattern, replacement) gsub(pattern, " ", x)
 ## Number of Top predictions
 n5 <- 20
 
-## global variable for data set initialization state
-initUnigrams <- FALSE
-initBigrams <- FALSE
-initTrigrams <- FALSE
-initQuadgrams <- FALSE
-
-#predRanks <- data.frame()
+predRanks <- data.frame()
 
 ### Retrieve test expression from the UI
 # exp <- "The guy in front of me just bought a pound of bacon, a bouquet, and a case of"
@@ -86,10 +80,7 @@ shinyServer(
       ## Check for init state for data sets for unigrams, bigrams, trigrams, and quadgrams
 
       #if(length(grep("ugset", dsloads, fixed=TRUE)) == 0) {
-      if(!initUnigrams) {
-        
-        # Set init to true
-        initUnigrams <<- TRUE
+      if(nrow(ugset) == 0) {
         
         if (is.function(updateProgress)) {
           text <- "   Loading 1-Grams in Progress ..."
@@ -107,9 +98,7 @@ shinyServer(
         ugset$Percent <<- ugset$freq / sum(ugset$freq,na.rm=TRUE)
       }
       
-      if(!initBigrams) {
-        
-        initBigrams <<- TRUE
+      if(nrow(bgset) == 0) {
         
         if (is.function(updateProgress)) {
           text <- "   Loading 2-Grams in Progress ..."
@@ -127,10 +116,7 @@ shinyServer(
       }
       
       #if(length(grep("tgset", dsloads, fixed=TRUE)) == 0) {
-      if(!initTrigrams) {
-        
-        # Set init to true
-        initTrigrams <<- TRUE
+      if(nrow(tgset) == 0) {
         
         if (is.function(updateProgress)) {
           text <- "   Loading 3-Grams in Progress ..."
@@ -148,10 +134,7 @@ shinyServer(
       } 
       
       ##if(length(grep("qgset", dsloads, fixed=TRUE)) == 0) {
-      if(!initQuadgrams) {
-        
-        # Set init to true
-        initQuadgrams <<- TRUE
+      if(nrow(qgset) == 0) {
         
         if (is.function(updateProgress)) {
           text <- "   Loading 4-Grams in Progress ..."
@@ -461,10 +444,10 @@ shinyServer(
           results2 <- arrange(results,desc(vote))
           
           results3 <- select(results2,rownum)
-          predRanks <<- inner_join(results3,results) %>% top_n(n5) %>% select(ngram,Prob1,Prob2,Prob3,Prob4,vote)
           
           finalResult <- results2[1,]$Single
           predWord <- rownames(ugset[finalResult,])
+          predRanks <<- inner_join(results3,results) %>% top_n(n5) %>% select(ngram,Prob1,Prob2,Prob3,Prob4,vote)
         } else if(includeTrigrams & 
                     includeBigrams & includeUnigrams) {
           
@@ -488,10 +471,11 @@ shinyServer(
           results2 <- arrange(results,desc(vote))
           
           results3 <- select(results2,rownum)
-          predRanks <<- inner_join(results3,results) %>% top_n(n5) %>% select(ngram,Prob2,Prob3,Prob4,vote)
           
           finalResult <- results2[1,]$Single
           predWord <- rownames(ugset[finalResult,])
+          predRanks <<- inner_join(results3,results) %>% top_n(n5) %>% select(ngram,Prob2,Prob3,Prob4,vote)
+          
         } else if(includeBigrams & includeUnigrams) {
  
           ## Weighting coefficients for the interpolation of n-grams based on machine learning iterations
@@ -510,10 +494,12 @@ shinyServer(
           results2 <- arrange(results,desc(vote))
           
           results3 <- select(results2,rownum)
-          predRanks <<- inner_join(results3,results) %>% top_n(n5) %>% select(ngram,Prob3,Prob4,vote)
+          
           
           finalResult <- results2[1,]$Single
           predWord <- rownames(ugset[finalResult,])
+          
+          predRanks <<- inner_join(results3,results) %>% top_n(n5) %>% select(ngram,Prob3,Prob4,vote)
         }
                
         if(is.na(predWord)) {
@@ -535,9 +521,9 @@ shinyServer(
       }
     })
 
-#     output$rankPreds = renderDataTable({
-#       predRanks
-#     })
+     output$rankPreds = renderDataTable({
+       predRanks
+     })
   }
 )
 

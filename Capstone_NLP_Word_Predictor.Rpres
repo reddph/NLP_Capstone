@@ -1,43 +1,39 @@
 Capstone NLP Word Prediction
 ========================================================
 author: Phanindra Reddigari
-date: 1/18/2017
+date: 1/22/2016
 
 Overall Scope:
 ========================================================
-Analyze the Swiftkey text files (blogs, twitter, and news) and develop a simple Shiny UI for next word prediction in a free form phrase. The UI is designed to accept user input in a text box and upon user submission, predicts the next word in the phrase. Highlights of the Shiny App design are: 
-- Implementation of Dan Jurafsky's n-Gram NLP Interpolation model
+Analyze the Swiftkey text files (blogs, twitter, and news) and develop a simple Shiny UI for next word prediction in a free form phrase input by user 
+- Implementation of Dan Jurafsky's n-Gram NLP Interpolation model [(Jurafsky Interpolation)] (https://class.coursera.org/nlp/lecture/19)
 - Building Hash Map indexes between 4-Grams, 3-Grams, 2-Grams, and 1-Grams for fast lookups (primary and foreign key relationships)
-- Hash Map columns for computing probabilities of n-Gram based on conditional probabilities
-- Tradeoff accuracy for speed and memory (reduce the size of n-Grams)
-Mathematical Basis:
-========================================================
-Basic n-Gram Probability based on computation of conditional probabilities using:
-
-##### P(w1 w2 w3 w4) = lambda1 * c(w1 w2 w3 w4) / c(w1 w2 w3) + 
-#####                 lambda2 * c(w2 w3 w4) / c(w2 w3) + 
-#####                 lambda3 * c(w3 w4) / c(w3) + 
-#####                 lambda4 * c(w4) / sum of frequencies of all 1-Grams, 
-                 
-##### where w4 is the candidate word and the prefix (e.g., (w1 w2 w3) is a lower order n-gram,
-##### c() represents the count of a n-gram (frequency),
-##### and lambda1 + lambda2 + lambda3 + lambda4 = 1.0
-
-Ranking the candidate words by aggregate probability of n-Gram (higher weights for higher order n-grams). The optimal lambda coefficients obtained by training on known phrases.
-
+- Tradeoff accuracy for speed: Reduce Sparsity, 237894 1-Grams, 347112 Bigrams, 369445 Trigrams, 253621 Quadgrams)
+- Code checked in GitHub [(NLP Capstone Repo)] (https://github.com/reddph/NLP_Capstone): TextMining.R (training), server.R and ui.R (Shiny App for prediction)
 Design Details - Data Structures and Algorithm for Prediction
 ========================================================
-- Cross references to 4-Grams, 3-Grams, 2-Grams, and 1-Grams stored as integer indexes
-- 1-Gram (ugset) stored on disk as RDS with named rows with frequency as the column
-- 2-Gram (bgset) stored on disk as RDS with named rows with prefix and suffix unigram indexes
-- 3-Gram (tgset) stored on disk as RDS with named rows with prefix bigram and suffix unigram indexes
-- 4-Gram (qgset) stored on disk as RDS with named rows with prefix trigram and suffix unigram indexes
-- (n-1)-Gram prefix in a n-Gram is indexed using rownum in (n-1)-Gram primary key
+- Cross-references to 4-Grams, 3-Grams, 2-Grams, and 1-Grams stored as integer indexes
+- 1-Gram (ugset) stored on disk as RDS with named rows with frequency column
+- 2-Gram (bgset) stored on disk as RDS with named rows with frequency, embedded prefix and embedded suffix unigram index columns
+- 3-Gram (tgset) stored on disk as RDS with named rows with frequency, embedded prefix bigram and embedded suffix unigram index columns
+- 4-Gram (qgset) stored on disk as RDS with named rows with embedded prefix trigram and embedded suffix unigram index columns
+- Embedded (n-1)-Gram prefix in a n-Gram is indexed using rownum in (n-1)-Gram
+
+Interpolation Computation:
+========================================================
+##### Ranking the candidate words by aggregate probability of n-Gram (higher weights for higher order n-grams). The optimal lambda coefficients obtained by training on known phrases.
+$$  P(w1 w2 w3 w4) = l1 * c(w1w2w3w4) / c(w1w2w3) +     $$
+$$                   l2 * c(w2w3w4) / c(w2w3) +           $$
+$$                   l3 * c(w3w4) / c(w3) +                 $$
+$$                   l4 * c(w4) / sum&nbspof&nbspfrequencies&nbspof&nbspall&nbspUnigrams, $$
+######  where w4 is the candidate word and the prefix (e.g., (w1 w2 w3) is a embedded trigram, and c() represents the count of a n-gram (frequency column in each n-Gram data set)
+Example: In sample phrase, "Hey sunshine, can you follow me and make me the __", the candidates for prediction: happiest and most are compared by substituting w1 = "make", w2 = "me", w3 = "the", and w4 = ("happiest","most", ...) for all candidates and pick the word with highest probability. 
 
 Instructions for the Shiny App usage
 ========================================================
-- Input text box: Use this box to enter a new phrase or edit an existing phrase. This box supports full text navigation and edit capabilities. The text box populates a sample phrase at initialization or a refresh. 
+- Input text box: Use this box (at the top) to enter a new phrase or edit an existing phrase. This box supports full text navigation and edit capabilities. The text box populates a sample phrase at initialization or a refresh. 
 - Submit Button: When the text edit is complete, click on this button to initiate the word prediction algorithm
+- Progress Bar: The progress of computation to indicate the status of loading/computing.
 - Output text box: This box displays the predicted word appended to the original phrase
 - Repeat the above three steps for the next phrase
 - Initial Wait: The UI takes 20 to 30 seconds to load the training data sets for n-Grams. Please be patient to allow the loading to be complete. The UI is ready to use once the output shows the completion of the sample phrase.
